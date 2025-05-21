@@ -6,7 +6,7 @@
             @csrf
 
             <div class="mb-4">
-                <label for="title" class="block font-medium text-gray-700">Tiêu đề</label>
+                <label for="title" class="block font-medium text-gray-700">Tiêu đề<span class="text-red-600"> *(Bắt buộc)</span></label>
                 <input type="text" name="title" id="title" value="{{ old('title') }}" required
                     class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200" />
                 @error('title')
@@ -15,7 +15,7 @@
             </div>
 
             <div class="mb-4">
-                <label for="short_description" class="block font-medium text-gray-700">Mô tả ngắn</label>
+                <label for="short_description" class="block font-medium text-gray-700">Mô tả ngắn<span class="text-red-600"> *(Bắt buộc)</span></label>
                 <textarea name="short_description" id="short_description" rows="3" required
                     class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200">{{ old('short_description') }}</textarea>
                 @error('short_description')
@@ -24,7 +24,7 @@
             </div>
 
             <div class="mb-4">
-                <label for="content" class="block font-medium text-gray-700">Nội dung bài viết</label>
+                <label for="content" class="block font-medium text-gray-700">Nội dung bài viết<span class="text-red-600"> *(Bắt buộc)</span></label>
                 <textarea name="content" id="content" rows="10" required
                     class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200">{{ old('content') }}</textarea>
                 @error('content')
@@ -33,8 +33,8 @@
             </div>
 
             <div class="mb-4">
-                <label for="banner" class="block font-medium text-gray-700">Banner bài viết</label>
-                <input type="file" name="banner" id="banner" accept="image/*"
+                <label for="banner" class="block font-medium text-gray-700">Banner bài viết<span class="text-red-600"> *(Bắt buộc)</span></label>
+                <input type="file" name="banner" id="banner" accept="image/*" required
                     class="mt-1 block w-full" />
                 @error('banner')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
@@ -42,8 +42,8 @@
             </div>
 
             <div class="mb-4">
-                <label for="gallery" class="block font-medium text-gray-700">Ảnh hiển thị bài viết (Gallery)</label>
-                <input type="file" name="gallery[]" id="gallery" accept="image/*" multiple
+                <label for="gallery" class="block font-medium text-gray-700">Ảnh hiển thị bài viết (Gallery)<span class="text-red-600"> *(Bắt buộc)</span></label>
+                <input type="file" name="gallery[]" id="gallery" accept="image/*" multiple required
                     class="mt-1 block w-full" />
                 @error('gallery.*')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
@@ -62,4 +62,18 @@
     <script>
         CKEDITOR.replace('content');
     </script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    @if ($errors->has('gallery'))
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi!',
+                text: 'Yêu cầu nhập tối thiểu 2 ảnh Gallery',
+                confirmButtonText: 'OK'
+            });
+        </script>
+    @endif
 </x-app-layout>

@@ -15,6 +15,10 @@
                     <td class="px-6 py-4">{{ $post->title }}</td>
                 </tr>
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="px-6 py-4 font-semibold w-1/3">Tên tác giả</td>
+                    <td class="px-6 py-4">{{ $post->user ? $post->user->name : 'Không xác định' }}</td>
+                </tr>
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="px-6 py-4 font-semibold w-1/3">Mô tả ngắn</td>
                     <td class="px-6 py-4">{{ $post->short_description }}</td>
                 </tr>

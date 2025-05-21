@@ -1,6 +1,19 @@
 <x-app-layout>
 <div class="p-6 rounded-lg shadow-md space-y-6" style="background: linear-gradient(to right, #a78bfa, #f9a8d4, #fcd34d);">
 
+@if(session('success'))
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    Swal.fire({
+        icon: 'success',
+        title: 'Thành công!',
+        text: '{{ session('success') }}',
+        confirmButtonText: 'OK'
+    });
+</script>
+@endif
+
+
 <div class="flex justify-around text-center space-x-6 space-y-0 flex-wrap">
         <div style="margin: 0 5px" class="bg-white rounded-lg p-4 shadow flex-1 flex items-center space-x-4 justify-center min-w-[200px]">
             
@@ -27,7 +40,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
         <h2 class="text-lg font-semibold mb-4 text-center">Chức năng quản lý</h2>
         <div class="flex justify-center space-x-4">
             <a href="{{ route('posts.create') }}" class="inline-flex items-center px-4 py-2 bg-white text-black border border-gray-300 rounded hover:bg-gray-100">
@@ -45,9 +58,9 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md p-6 max-w-xl mx-auto">
+    <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
         <h2 class="text-lg font-semibold mb-4 text-center">Biểu đồ số lượng bài viết trong 7 ngày gần nhất</h2>
-        <canvas id="postsChart" width="450" height="150"></canvas>
+        <canvas id="postsChart" width="900" height="300"></canvas>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

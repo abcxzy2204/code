@@ -12,13 +12,12 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Response;
-
 class PostController extends Controller
 {
     // Hiển thị danh sách bài viết  
     public function index(Request $request)
     {
-        $query = Post::with('images')->latest();
+        $query = Post::with(['images', 'user'])->latest();
 
         // Search by title or short_description
         if ($request->filled('search')) {
@@ -31,9 +30,65 @@ class PostController extends Controller
 
         // Filter example: by date or other criteria can be added here
 
-        $posts = $query->paginate(5)->appends($request->all());
+        $posts = $query->get();
+        $response = response()->view('posts.index', compact('posts'));
+        $response->header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return $response;
+    }
 
-        return view('posts.index', compact('posts'));
+    // DataTables server-side processing endpoint
+    public function data(Request $request)
+    {
+        $columns = [
+            0 => 'title',
+            1 => 'short_description',
+            2 => 'created_at',
+        ];
+
+        $totalData = Post::count();
+        $totalFiltered = $totalData;
+
+        $limit = $request->input('length');
+        $start = $request->input('start');
+        $orderColumnIndex = $request->input('order.0.column');
+        $orderColumn = $columns[$orderColumnIndex] ?? 'created_at';
+        $orderDir = $request->input('order.0.dir', 'desc');
+        $searchValue = $request->input('search.value');
+
+        $query = Post::query();
+
+        if (!empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('title', 'like', "%{$searchValue}%")
+                  ->orWhere('short_description', 'like', "%{$searchValue}%");
+            });
+
+            $totalFiltered = $query->count();
+        }
+
+        $posts = $query->offset($start)
+            ->limit($limit)
+            ->orderBy($orderColumn, $orderDir)
+            ->get();
+
+        $data = [];
+        foreach ($posts as $post) {
+            $data[] = [
+                'title' => $post->title,
+                'short_description' => Str::limit($post->short_description, 50),
+                'created_at' => $post->created_at->format('d/m/Y'),
+                'action' => view('posts.partials.actions', compact('post'))->render(),
+            ];
+        }
+
+        $json_data = [
+            "draw" => intval($request->input('draw')),
+            "recordsTotal" => intval($totalData),
+            "recordsFiltered" => intval($totalFiltered),
+            "data" => $data,
+        ];
+
+        return response()->json($json_data);
     }
 
     // Hiển thị form tạo bài viết mới
@@ -45,19 +100,26 @@ class PostController extends Controller
     // Lưu bài viết mới
     public function store(Request $request)
     {
+        $messages = [
+            'gallery.required' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
+            'gallery.min' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
+            'gallery.array' => 'Gallery phải là một mảng ảnh hợp lệ.',
+        ];
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'short_description' => 'required|string|max:500',
             'content' => 'required|string',
-            'banner' => 'nullable|image|max:2048',
-            'gallery.*' => 'nullable|image|max:2048',
-        ]);
+            'banner' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'gallery' => 'required|array|min:2|max:5',
+            'gallery.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+        ], $messages);
 
         $validated['title'] = strip_tags($validated['title']);
         $validated['short_description'] = strip_tags($validated['short_description']);
         // content có thể chứa html do WYSIWYG
 
-        // $validated['user_id'] = auth()->id();
+        $validated['user_id'] = auth()->id();
 
         // Xử lý upload banner
         if ($request->hasFile('banner')) {
@@ -74,15 +136,14 @@ class PostController extends Controller
                 $post->images()->create(['image' => $imagePath]);
             }
         }
-
-        return redirect()->route('posts.index')->with('success', 'Đăng bài thành công!');
+        return redirect()->route('posts.index')->with('success', 'Tạo bài viết thành công!');
     }
 
     // Hiển thị chi tiết bài viết
     public function show(Post $post)
     {
         $post->load('images');
-        return view('posts.show', compact('post'));
+        return view('posts.show', compact('post'))  ;
     }
 
     // Hiển thị form chỉnh sửa bài viết
@@ -95,20 +156,49 @@ class PostController extends Controller
     // Cập nhật bài viết
     public function update(Request $request, Post $post)
     {
+        $messages = [
+            'gallery.required' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
+            'gallery.min' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
+            'gallery.array' => 'Gallery phải là một mảng ảnh hợp lệ.',
+            'banner.required_if' => 'Khi xóa banner cũ, bạn phải tải lên banner mới.',
+        ];
+
+        // Custom validation for gallery count including existing images minus deleted plus new uploads
+        $existingImagesCount = $post->images()->count();
+        $deleteImagesCount = is_array($request->input('delete_images')) ? count($request->input('delete_images')) : 0;
+        $newImagesCount = $request->hasFile('gallery') ? count($request->file('gallery')) : 0;
+        $totalImagesCount = $existingImagesCount - $deleteImagesCount + $newImagesCount;
+
+        if ($totalImagesCount < 2) {
+            return redirect()->back()
+                ->withErrors(['gallery' => 'Bạn phải có ít nhất 2 ảnh trong gallery.'])
+                ->withInput();
+        }
+
+        // If user wants to delete banner, require new banner upload
+        if ($request->input('delete_banner') && !$request->hasFile('banner')) {
+            return redirect()->back()
+                ->withErrors(['banner' => 'Khi xóa banner cũ, bạn phải tải lên banner mới.'])
+                ->withInput();
+        }
+
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'short_description' => 'required|string|max:500',
-            'content' => 'required|string',
-            'banner' => 'nullable|image|max:2048',
-            'gallery.*' => 'nullable|image|max:2048',
-            'delete_images' => 'nullable|array',
-            'delete_images.*' => 'integer|exists:post_images,id',
-            'delete_banner' => 'nullable|boolean',
-        ]);
+            'title'             => 'required|string|max:255',
+            'short_description' => 'nullable|string|max:1000',
+            'content'           => 'nullable|string',
+            'banner'            => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'gallery'           => 'nullable|array|max:5',
+            'gallery.*'         => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'delete_images'     => 'nullable|array',
+            'delete_images.*'   => 'integer|exists:post_images,id',
+            'delete_banner'     => 'nullable|boolean',
+        ], $messages);
 
         $validated['title'] = strip_tags($validated['title']);
         $validated['short_description'] = strip_tags($validated['short_description']);
         // content có thể chứa html do WYSIWYG
+
+        $validated['user_id'] = auth()->id();
 
         // Xử lý xóa ảnh gallery nếu có
         if (!empty($validated['delete_images'])) {
@@ -117,6 +207,12 @@ class PostController extends Controller
                 Storage::disk('public')->delete($image->image);
                 $image->delete();
             }
+        }
+
+        // Xử lý xóa banner nếu có yêu cầu
+        if (!empty($validated['delete_banner']) && $post->banner) {
+            Storage::disk('public')->delete($post->banner);
+            $post->banner = null;
         }
 
         // Xử lý upload banner mới nếu có
@@ -138,7 +234,6 @@ class PostController extends Controller
                 $post->images()->create(['image' => $imagePath]);
             }
         }
-
         return redirect()->route('posts.index')->with('success', 'Cập nhật bài viết thành công!');
     }
 
@@ -159,8 +254,7 @@ class PostController extends Controller
         return redirect()->route('posts.index')->with('success', 'Xóa bài viết thành công!');
     }
 
-
-public function export()
+   public function export()
     {
         // Lấy dữ liệu bài viết
         $posts = Post::select('id', 'title', 'short_description', 'content', 'created_at', 'updated_at')->get();
@@ -201,8 +295,7 @@ public function export()
         $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         $response->headers->set('Content-Disposition', 'attachment;filename="posts.xlsx"');
         $response->headers->set('Cache-Control', 'max-age=0');
-
+      
         return $response;
     }
-
 }

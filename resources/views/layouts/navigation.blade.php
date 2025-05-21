@@ -11,18 +11,24 @@
                 </div>
 
                 <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black">
-                        {{ __('Trang Chủ') }}
-                    </x-nav-link>
-                </div>
+<div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex text-lg">
+    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black">
+        {{ __('Trang Chủ') }}
+    </x-nav-link>
+    <x-nav-link :href="route('posts.index')" :active="request()->routeIs('posts.index')" class="text-black">
+        {{ __('Quản lý bài viết') }}
+    </x-nav-link>
+    <x-nav-link :href="route('posts.create')" :active="request()->routeIs('posts.create')" class="text-black">
+        {{ __('Thêm bài viết') }}
+    </x-nav-link>
+</div>
             </div>
 
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ml-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-black bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
+                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-lg leading-4 font-medium rounded-md text-black bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
                             <div>{{ Auth::user()->name }}</div>
 
                             <div class="ml-1">
@@ -34,19 +40,19 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link>
+<x-dropdown-link :href="route('profile.edit')">
+    {{ __('Tài khoản') }}
+</x-dropdown-link>
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
 
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
-                                {{ __('Log Out') }}
-                            </x-dropdown-link>
+<x-dropdown-link :href="route('logout')"
+        onclick="event.preventDefault();
+                    this.closest('form').submit();">
+    {{ __('Đăng xuất') }}
+</x-dropdown-link>
                         </form>
                     </x-slot>
                 </x-dropdown>
@@ -67,7 +73,7 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black">
+            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black text-lg">
                 {{ __('Trang Chủ') }}
             </x-responsive-nav-link>
         </div>
@@ -80,19 +86,19 @@
             </div>
 
             <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')" class="text-black">
-                    {{ __('Profile') }}
-                </x-responsive-nav-link>
+<x-responsive-nav-link :href="route('profile.edit')" class="text-black text-lg">
+    {{ __('Tài khoản') }}
+</x-responsive-nav-link>
 
                 <!-- Authentication -->
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
 
-                    <x-responsive-nav-link :href="route('logout')" class="text-black"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
-                        {{ __('Log Out') }}
-                    </x-responsive-nav-link>
+<x-responsive-nav-link :href="route('logout')" class="text-black text-lg"
+        onclick="event.preventDefault();
+                    this.closest('form').submit();">
+    {{ __('Đăng xuất') }}
+</x-responsive-nav-link>
                 </form>
             </div>
         </div>

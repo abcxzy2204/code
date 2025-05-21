@@ -46,6 +46,7 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
+        $request->session()->flash('success', 'Đăng ký tài khoản thành công!');
         return redirect(RouteServiceProvider::HOME);
     }
 }

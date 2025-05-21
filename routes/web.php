@@ -1,32 +1,21 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
+use App\Models\Post;
 use App\Http\Controllers\PostController;
-
-Route::delete('/posts/{post}/images/{image}', [PostController::class, 'destroyImage'])->name('posts.images.destroy');
-
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
-
+use App\Http\Controllers\DashboardController;
+use App\Exports\PostsExport;
+use Maatwebsite\Excel\Facades\Excel;
+// Trang chủ
 Route::get('/', function () {
     return view('welcome');
 });
 
-use App\Models\Post;
-
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
-
+// Dashboard
 Route::get('/dashboard', function () {
     $totalPosts = Post::count();
     $latestPostCount = Post::where('created_at', '>=', Carbon::now()->subDay())->count();
@@ -40,7 +29,6 @@ Route::get('/dashboard', function () {
         ->orderBy('date')
         ->get();
 
-    // Chuẩn bị dữ liệu cho biểu đồ
     $dates = [];
     $counts = [];
     for ($i = 0; $i < 7; $i++) {
@@ -53,27 +41,35 @@ Route::get('/dashboard', function () {
     return view('dashboard', compact('totalPosts', 'latestPostCount', 'latestPostDate', 'dates', 'counts'));
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+// Nhóm các route cần đăng nhập
 Route::middleware('auth')->group(function () {
+
+    // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-Route::get('/posts/export', [PostController::class, 'export'])->name('posts.export');
 
-require __DIR__.'/auth.php';
+//xuất file excel
+    Route::get('/posts/export', function () {
+        return Excel::download(new PostsExport, 'posts.xlsx');
+    })->name('posts.export');
 
-
-
-// Đã import PostController ở đầu file, không cần import lại ở đây
-// Route::resource('posts', PostController::class);
-
-// Thêm resource route cho posts trong group middleware auth
-Route::middleware('auth')->group(function () {
+    // Xuất file excel
+    Route::get('/posts/export', [PostController::class, 'export'])->name('posts.export');  
+    // Posts
     Route::resource('posts', PostController::class);
 
-    
-
+    // Xoá ảnh trong bài viết
+    Route::delete('/posts/{post}/images/{image}', [PostController::class, 'destroyImage'])->name('posts.images.destroy');
 });
 
 
+// datatables
 
+Route::get('/posts/partials/index', [DashboardController::class, 'index'])->name('posts.partials.index');
+// update
+Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
+//delete post
+
+// Auth routes
+require __DIR__ . '/auth.php';
