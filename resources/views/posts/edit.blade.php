@@ -34,9 +34,18 @@
             </div>
 
             <div class="mb-4">
+                <label for="author_name" class="block font-medium text-gray-700">Tên tác giả<span class="text-red-600"> *(Bắt buộc)</span></label>
+                <input type="text" name="author_name" id="author_name" value="{{ old('author_name', $post->author_name) }}" required
+                    class="mt-1 block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200" />
+                @error('author_name')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="mb-4">
                 <label for="banner" class="block font-medium text-gray-700">Banner bài viết<span class="text-red-600"> *(Bắt buộc)</span></label>
                 @if($post->banner)
-                    <img src="{{ asset('storage/' . $post->banner) }}" alt="Banner" class="w-600 h-25 object-cover mb-2 rounded">
+                    <img src="{{ asset('storage/' . $post->banner) }}" alt="Banner" class="rounded mb-2" style="width: 500px; height: 300px; object-fit: cover;">
                     <label class="inline-flex items-center space-x-2">
                         <input type="checkbox" name="delete_banner" value="1" class="form-checkbox text-red-600">
                         <span class="text-red-600 text-sm cursor-pointer"> Xóa banner</span>
@@ -55,7 +64,7 @@
                     <div class="grid grid-cols-3 md:grid-cols-4 gap-2">
                         @foreach($post->images as $image)
                             <div class="relative group border rounded p-1">
-                                <img src="{{ asset('storage/' . $image->image) }}" alt="Gallery Image" class="w-15 h-30 object-cover rounded mb-1">
+                                <img src="{{ asset('storage/' . $image->image) }}" alt="Gallery Image" class="rounded mb-1" style="width: 500px; height: 300px; object-fit: cover;">
                                 <label class="inline-flex items-center space-x-2">
                                     <input type="checkbox" name="delete_images[]" value="{{ $image->id }}" class="form-checkbox text-red-600">
                                     <span class="text-red-600 text-sm cursor-pointer">Xóa ảnh</span>
@@ -67,6 +76,37 @@
                 <input type="file" name="gallery[]" id="gallery" accept="image/*" multiple
                     class="mt-1 block w-full" />
                 @error('gallery.*')
+                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="mb-4">
+                <label for="parentCategoryFilter" class="block font-medium text-gray-700">Danh mục cha<span class="text-red-600"> *(Bắt buộc)</span></label>
+                <select id="parentCategoryFilter" class="border border-gray-300 rounded px-3 py-2" required>
+                    <option value="">-- Chọn danh mục cha --</option>
+                    @foreach($categories as $parentCategory)
+                        <option value="{{ $parentCategory->id }}" {{ $post->category && $post->category->parent && $post->category->parent->id == $parentCategory->id ? 'selected' : '' }}>
+                            {{ $parentCategory->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="childCategoryFilter" class="block font-medium text-gray-700">Danh mục con<span class="text-red-600"> *(Bắt buộc)</span></label>
+                <select name="category_id" id="childCategoryFilter" class="border border-gray-300 rounded px-3 py-2" required>
+                    <option value="">-- Chọn danh mục con --</option>
+                    @foreach($categories as $parentCategory)
+                        @if($parentCategory->children)
+                            @foreach($parentCategory->children as $childCategory)
+                                <option value="{{ $childCategory->id }}" {{ old('category_id', $post->category_id) == $childCategory->id ? 'selected' : '' }}>
+                                    {{ $childCategory->name }}
+                                </option>
+                            @endforeach
+                        @endif
+                    @endforeach
+                </select>
+                @error('category_id')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                 @enderror
             </div>
@@ -83,7 +123,7 @@
     <script>
         CKEDITOR.replace('content');
     </script>
-<!-- SweetAlert2 -->
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     @if ($errors->has('gallery'))
@@ -129,5 +169,60 @@
             });
         </script>
     @endif
-    
+
+    <script>
+        $(document).ready(function () {
+            var categories = @json($categories);
+
+            function updateChildCategories(parentId) {
+                var childSelect = $('#childCategoryFilter');
+                childSelect.empty();
+                childSelect.append('<option value="">-- Chọn danh mục con --</option>');
+                if (!parentId) {
+                    childSelect.prop('disabled', true);
+                    return;
+                }
+                var parent = categories.find(function(cat) {
+                    return cat.id == parentId;
+                });
+                if (parent && parent.children) {
+                    parent.children.forEach(function(child) {
+                        childSelect.append('<option value="' + child.id + '">' + child.name + '</option>');
+                    });
+                    childSelect.prop('disabled', false);
+                } else {
+                    childSelect.prop('disabled', true);
+                }
+            }
+
+            $('#parentCategoryFilter').on('change', function () {
+                updateChildCategories($(this).val());
+                // Reset child filter selection when parent changes
+                $('#childCategoryFilter').val('');
+            });
+
+            // Initialize child categories on page load
+            updateChildCategories($('#parentCategoryFilter').val());
+
+            // Ensure child category selection is valid on page load
+            var selectedParentId = $('#parentCategoryFilter').val();
+            var selectedChildId = $('#childCategoryFilter').val();
+            var validChildIds = [];
+
+            if (selectedParentId) {
+                var parent = categories.find(function(cat) {
+                    return cat.id == selectedParentId;
+                });
+                if (parent && parent.children) {
+                    validChildIds = parent.children.map(function(child) {
+                        return child.id.toString();
+                    });
+                }
+            }
+
+            if (selectedChildId && !validChildIds.includes(selectedChildId)) {
+                $('#childCategoryFilter').val('');
+            }
+        });
+    </script>
 </x-app-layout>

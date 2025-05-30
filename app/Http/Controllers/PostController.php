@@ -3,23 +3,17 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Post;
-use App\Models\PostImage;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Category;
 use Illuminate\Support\Str;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\PostsExport;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Illuminate\Support\Facades\Response;
+
 class PostController extends Controller
 {
-    // Hiển thị danh sách bài viết  
+    // Hiển thị trang quản lý bài viết
     public function index(Request $request)
     {
-        $query = Post::with(['images', 'user'])->latest();
+        $query = Post::with(['images', 'category'])->latest();
 
-        // Search by title or short_description
+        // Tìm kiếm theo tiêu đề hoặc mô tả ngắn
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
@@ -28,43 +22,130 @@ class PostController extends Controller
             });
         }
 
-        // Filter example: by date or other criteria can be added here
+        // Lọc theo danh mục cha và danh mục con nếu có
+        $parentCategoryId = $request->input('category');
+        $childCategoryId = $request->input('child_category');
+
+        if ($childCategoryId) {
+            // Lọc theo danh mục con cụ thể
+            $query->where('category_id', $childCategoryId);
+        } elseif ($parentCategoryId) {
+            // Lấy tất cả ID danh mục con và danh mục cha được chọn
+            $categoryIds = Category::where('id', $parentCategoryId)
+                ->orWhere('parent_id', $parentCategoryId)
+                ->pluck('id')
+                ->toArray();
+
+            $query->whereIn('category_id', $categoryIds);
+        }
 
         $posts = $query->get();
-        $response = response()->view('posts.index', compact('posts'));
+        $categories = Category::with('children')->whereNull('parent_id')->get();
+        $response = response()->view('posts.index', compact('posts', 'categories'));
         $response->header('Cache-Control', 'no-cache, no-store, must-revalidate');
         return $response;
     }
 
-    // DataTables server-side processing endpoint
-    public function data(Request $request)
+    // Hiển thị trang chi tiết bài viết dành cho user
+    public function showForUser($id)
+    {
+        $post = Post::with(['category', 'images'])->findOrFail($id);
+
+        $suggestedPosts = collect();
+
+        if ($post->category_id) {
+            // Lấy 2 bài viết gợi ý cùng danh mục, không lấy bài hiện tại
+            $suggestedPosts = Post::with('category')
+                ->where('category_id', $post->category_id)
+                ->where('id', '!=', $post->id)
+                ->limit(2)
+                ->get();
+        }
+
+        // Nếu không có bài viết gợi ý cùng danh mục hoặc không có category, lấy 2 bài viết mới nhất không phải bài hiện tại
+        if ($suggestedPosts->isEmpty()) {
+            $suggestedPosts = Post::with('category')
+                ->where('id', '!=', $post->id)
+                ->latest()
+                ->limit(2)
+                ->get();
+        }
+
+        return view('posts.user_show', compact('post', 'suggestedPosts'));
+    }
+
+    // Hiển thị danh mục bài viết
+    public function danhmuc(Request $request)
+    {
+        $query = Post::with(['images', 'category'])->latest();
+
+        // Filter by category if provided
+        if ($request->filled('category')) {
+            $categoryId = $request->input('category');
+
+            // Get all descendant category IDs including the selected category
+            $categoryIds = Category::where('id', $categoryId)
+                ->orWhere('parent_id', $categoryId)
+                ->pluck('id')
+                ->toArray();
+
+            $query->whereIn('category_id', $categoryIds);
+        }
+
+        $posts = $query->get();
+        $categories = Category::with('children')->whereNull('parent_id')->get();
+        $response = response()->view('danhmuc', compact('posts', 'categories'));
+        $response->header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return $response;
+    }
+
+    // Server-side processing for danhmuc datatable
+    public function danhmucData(Request $request)
     {
         $columns = [
-            0 => 'title',
-            1 => 'short_description',
-            2 => 'created_at',
+            0 => 'category_id',
+            1 => 'title',
+            2 => 'short_description',
+            3 => 'author_name',
+            4 => 'created_at',
         ];
 
         $totalData = Post::count();
         $totalFiltered = $totalData;
 
-        $limit = $request->input('length');
-        $start = $request->input('start');
-        $orderColumnIndex = $request->input('order.0.column');
+        $limit = $request->input('length', 10);
+        $start = $request->input('start', 0);
+        $orderColumnIndex = $request->input('order.0.column', 4);
         $orderColumn = $columns[$orderColumnIndex] ?? 'created_at';
         $orderDir = $request->input('order.0.dir', 'desc');
         $searchValue = $request->input('search.value');
 
-        $query = Post::query();
+        $query = Post::with('category');
+
+        // Filter by parent category
+        $parentCategoryId = $request->input('parent_category_id');
+        if ($parentCategoryId) {
+            $categoryIds = Category::where('id', $parentCategoryId)
+                ->orWhere('parent_id', $parentCategoryId)
+                ->pluck('id')
+                ->toArray();
+            $query->whereIn('category_id', $categoryIds);
+        }
+
+        // Filter by child category
+        $childCategoryId = $request->input('child_category_id');
+        if ($childCategoryId) {
+            $query->where('category_id', $childCategoryId);
+        }
 
         if (!empty($searchValue)) {
             $query->where(function ($q) use ($searchValue) {
                 $q->where('title', 'like', "%{$searchValue}%")
                   ->orWhere('short_description', 'like', "%{$searchValue}%");
             });
-
-            $totalFiltered = $query->count();
         }
+
+        $totalFiltered = $query->count();
 
         $posts = $query->offset($start)
             ->limit($limit)
@@ -73,11 +154,17 @@ class PostController extends Controller
 
         $data = [];
         foreach ($posts as $post) {
+            $parentName = $post->category && $post->category->parent ? $post->category->parent->name : ($post->category ? $post->category->name : '');
+            $childName = $post->category && $post->category->parent ? $post->category->name : '';
+
             $data[] = [
-                'title' => $post->title,
-                'short_description' => Str::limit($post->short_description, 50),
-                'created_at' => $post->created_at->format('d/m/Y'),
-                'action' => view('posts.partials.actions', compact('post'))->render(),
+                $parentName,
+                $childName,
+                Str::limit($post->title, 50),
+                Str::limit($post->short_description, 50),
+                $post->author_name ?? 'Không xác định',
+                $post->created_at->format('d/m/Y'),
+                view('posts.partials.actions', compact('post'))->render(),
             ];
         }
 
@@ -94,208 +181,106 @@ class PostController extends Controller
     // Hiển thị form tạo bài viết mới
     public function create()
     {
-        return view('posts.create');
+        $categories = Category::with('children')->whereNull('parent_id')->get();
+        return view('posts.create', compact('categories'));
     }
 
     // Lưu bài viết mới
     public function store(Request $request)
     {
-        $messages = [
-            'gallery.required' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
-            'gallery.min' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
-            'gallery.array' => 'Gallery phải là một mảng ảnh hợp lệ.',
-        ];
-
-        $validated = $request->validate([
+        $validatedData = $request->validate([
             'title' => 'required|string|max:255',
-            'short_description' => 'required|string|max:500',
+            'short_description' => 'nullable|string|max:500',
             'content' => 'required|string',
-            'banner' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'gallery' => 'required|array|min:2|max:5',
-            'gallery.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-        ], $messages);
+            'category_id' => 'nullable|exists:categories,id',
+            'author_name' => 'nullable|string|max:255',
+            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images' => 'required|array|min:2',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
 
-        $validated['title'] = strip_tags($validated['title']);
-        $validated['short_description'] = strip_tags($validated['short_description']);
-        // content có thể chứa html do WYSIWYG
+        $post = new Post();
+        $post->title = $validatedData['title'];
+        $post->short_description = $validatedData['short_description'] ?? null;
+        $post->content = $validatedData['content'];
+        $post->category_id = $validatedData['category_id'] ?? null;
+        $post->author_name = $validatedData['author_name'] ?? null;
 
-        $validated['user_id'] = auth()->id();
-
-        // Xử lý upload banner
         if ($request->hasFile('banner')) {
-            $bannerPath = $request->file('banner')->store('banners', 'public');
-            $validated['banner'] = $bannerPath;
+            $bannerPath = $request->file('banner')->store('post_banners', 'public');
+            $post->banner = $bannerPath;
         }
 
-        $post = Post::create($validated);
+        $post->save();
 
-        // Xử lý upload gallery images
-        if ($request->hasFile('gallery')) {
-            foreach ($request->file('gallery') as $image) {
-                $imagePath = $image->store('gallery', 'public');
-                $post->images()->create(['image' => $imagePath]);
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('post_images', 'public');
+                $post->images()->create(['image' => $path]);
             }
         }
-        return redirect()->route('posts.index')->with('success', 'Tạo bài viết thành công!');
+
+        return redirect()->route('posts.index')->with('success', 'Bài viết đã được tạo thành công.');
     }
 
     // Hiển thị chi tiết bài viết
-    public function show(Post $post)
+    public function show($id)
     {
-        $post->load('images');
-        return view('posts.show', compact('post'))  ;
+        $post = Post::with(['category', 'images'])->findOrFail($id);
+        return view('posts.show', compact('post'));
     }
 
     // Hiển thị form chỉnh sửa bài viết
-    public function edit(Post $post)
+    public function edit($id)
     {
-        $post->load('images');
-        return view('posts.edit', compact('post'));
+        $post = Post::with('category')->findOrFail($id);
+        $categories = Category::with('children')->whereNull('parent_id')->get();
+        return view('posts.edit', compact('post', 'categories'));
     }
 
     // Cập nhật bài viết
-    public function update(Request $request, Post $post)
+    public function update(Request $request, $id)
     {
-        $messages = [
-            'gallery.required' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
-            'gallery.min' => 'Bạn phải thêm ít nhất 2 ảnh cho gallery.',
-            'gallery.array' => 'Gallery phải là một mảng ảnh hợp lệ.',
-            'banner.required_if' => 'Khi xóa banner cũ, bạn phải tải lên banner mới.',
-        ];
+        $validatedData = $request->validate([
+            'title' => 'required|string|max:255',
+            'short_description' => 'nullable|string|max:500',
+            'content' => 'required|string',
+            'category_id' => 'nullable|exists:categories,id',
+            'author_name' => 'nullable|string|max:255',
+            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
 
-        // Custom validation for gallery count including existing images minus deleted plus new uploads
-        $existingImagesCount = $post->images()->count();
-        $deleteImagesCount = is_array($request->input('delete_images')) ? count($request->input('delete_images')) : 0;
-        $newImagesCount = $request->hasFile('gallery') ? count($request->file('gallery')) : 0;
-        $totalImagesCount = $existingImagesCount - $deleteImagesCount + $newImagesCount;
+        $post = Post::findOrFail($id);
+        $post->title = $validatedData['title'];
+        $post->short_description = $validatedData['short_description'] ?? null;
+        $post->content = $validatedData['content'];
+        $post->category_id = $validatedData['category_id'] ?? null;
+        $post->author_name = $validatedData['author_name'] ?? null;
 
-        if ($totalImagesCount < 2) {
-            return redirect()->back()
-                ->withErrors(['gallery' => 'Bạn phải có ít nhất 2 ảnh trong gallery.'])
-                ->withInput();
-        }
-
-        // If user wants to delete banner, require new banner upload
-        if ($request->input('delete_banner') && !$request->hasFile('banner')) {
-            return redirect()->back()
-                ->withErrors(['banner' => 'Khi xóa banner cũ, bạn phải tải lên banner mới.'])
-                ->withInput();
-        }
-
-        $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'short_description' => 'nullable|string|max:1000',
-            'content'           => 'nullable|string',
-            'banner'            => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'gallery'           => 'nullable|array|max:5',
-            'gallery.*'         => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-            'delete_images'     => 'nullable|array',
-            'delete_images.*'   => 'integer|exists:post_images,id',
-            'delete_banner'     => 'nullable|boolean',
-        ], $messages);
-
-        $validated['title'] = strip_tags($validated['title']);
-        $validated['short_description'] = strip_tags($validated['short_description']);
-        // content có thể chứa html do WYSIWYG
-
-        $validated['user_id'] = auth()->id();
-
-        // Xử lý xóa ảnh gallery nếu có
-        if (!empty($validated['delete_images'])) {
-            $imagesToDelete = $post->images()->whereIn('id', $validated['delete_images'])->get();
-            foreach ($imagesToDelete as $image) {
-                Storage::disk('public')->delete($image->image);
-                $image->delete();
-            }
-        }
-
-        // Xử lý xóa banner nếu có yêu cầu
-        if (!empty($validated['delete_banner']) && $post->banner) {
-            Storage::disk('public')->delete($post->banner);
-            $post->banner = null;
-        }
-
-        // Xử lý upload banner mới nếu có
         if ($request->hasFile('banner')) {
-            // Xóa banner cũ nếu có
-            if ($post->banner) {
-                Storage::disk('public')->delete($post->banner);
-            }
-            $bannerPath = $request->file('banner')->store('banners', 'public');
-            $validated['banner'] = $bannerPath;
+            $bannerPath = $request->file('banner')->store('post_banners', 'public');
+            $post->banner = $bannerPath;
         }
 
-        $post->update($validated);
+        $post->save();
 
-        // Xử lý upload gallery images mới nếu có
-        if ($request->hasFile('gallery')) {
-            foreach ($request->file('gallery') as $image) {
-                $imagePath = $image->store('gallery', 'public');
-                $post->images()->create(['image' => $imagePath]);
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('post_images', 'public');
+                $post->images()->create(['image' => $path]);
             }
         }
-        return redirect()->route('posts.index')->with('success', 'Cập nhật bài viết thành công!');
+
+        return redirect()->route('posts.index')->with('success', 'Bài viết đã được cập nhật thành công.');
     }
 
-    // Xóa bài viết
-    public function destroy(Post $post)
+    // Xoá bài viết
+    public function destroy($id)
     {
-        // Xóa banner
-        if ($post->banner) {
-            Storage::disk('public')->delete($post->banner);
-        }
-        // Xóa ảnh gallery
-        foreach ($post->images as $image) {
-            Storage::disk('public')->delete($image->image);
-            $image->delete();
-        }
+        $post = Post::findOrFail($id);
         $post->delete();
 
-        return redirect()->route('posts.index')->with('success', 'Xóa bài viết thành công!');
-    }
-
-   public function export()
-    {
-        // Lấy dữ liệu bài viết
-        $posts = Post::select('id', 'title', 'short_description', 'content', 'created_at', 'updated_at')->get();
-
-        // Tạo spreadsheet mới
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-
-        // Đặt tiêu đề cột
-        $sheet->setCellValue('A1', 'ID');
-        $sheet->setCellValue('B1', 'Title');
-        $sheet->setCellValue('C1', 'Short Description');
-        $sheet->setCellValue('D1', 'Content');
-        $sheet->setCellValue('E1', 'Created At');
-        $sheet->setCellValue('F1', 'Updated At');
-
-        // Đổ dữ liệu vào từng dòng
-        $row = 2;
-        foreach ($posts as $post) {
-            $sheet->setCellValue('A' . $row, $post->id);
-            $sheet->setCellValue('B' . $row, $post->title);
-            $sheet->setCellValue('C' . $row, $post->short_description);
-            $sheet->setCellValue('D' . $row, $post->content);
-            $sheet->setCellValue('E' . $row, $post->created_at->format('Y-m-d H:i:s'));
-            $sheet->setCellValue('F' . $row, $post->updated_at->format('Y-m-d H:i:s'));
-            $row++;
-        }
-
-        // Tạo file excel
-        $writer = new Xlsx($spreadsheet);
-
-        // Tạo response stream để tải file
-        $response = new StreamedResponse(function() use ($writer) {
-            $writer->save('php://output');
-        });
-
-        // Header để trình duyệt nhận dạng là file excel
-        $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $response->headers->set('Content-Disposition', 'attachment;filename="posts.xlsx"');
-        $response->headers->set('Cache-Control', 'max-age=0');
-      
-        return $response;
+        return redirect()->route('posts.index')->with('success', 'Bài viết đã được xoá thành công.');
     }
 }

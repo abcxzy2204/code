@@ -3,7 +3,7 @@
         <table class="min-w-[600px] bg-white rounded-lg shadow-md overflow-hidden">
             <thead class="bg-white text-black">
                 <tr>
-                    <th colspan="2" class="px-6 py-3 text-center text-lg font-semibold">Chi tiết bài viết</th>
+                    <th colspan="2" class="px-6 py-3 text-center text-lg font-semibold" style="background-color: #2451a3; color: #fff;">Chi tiết bài viết</th>
                 </tr>
                 <tr>
                     <td colspan="2" class="border-b-2 border-black"></td>
@@ -16,7 +16,7 @@
                 </tr>
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="px-6 py-4 font-semibold w-1/3">Tên tác giả</td>
-                    <td class="px-6 py-4">{{ $post->user ? $post->user->name : 'Không xác định' }}</td>
+                    <td class="px-6 py-4">{{ $post->author_name ?? 'Không xác định' }}</td>
                 </tr>
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="px-6 py-4 font-semibold w-1/3">Mô tả ngắn</td>
@@ -30,7 +30,7 @@
                     <td class="px-6 py-4 font-semibold w-1/3">Banner</td>
                     <td class="px-6 py-4">
                         @if($post->banner)
-                            <img src="{{ asset('storage/' . $post->banner) }}" alt="Banner" class="h-24 object-cover rounded cursor-pointer" onclick="openModal(this.src)">
+                            <img src="{{ asset('storage/' . $post->banner) }}" alt="Banner" class="rounded cursor-pointer" style="width: 500px; height: 300px; object-fit: cover;" onclick="openModal(this.src)">
                         @else
                             <span>Không có</span>
                         @endif
@@ -57,7 +57,7 @@
     <!-- Modal for image zoom -->
     <div id="imageModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50" onclick="closeModal()">
         <button onclick="closeModal()" class="absolute top-4 right-4 text-white text-4xl font-bold z-50 leading-none">&times;</button>
-        <img id="modalImage" src="" alt="Zoomed Image" class="max-h-full max-w-full rounded shadow-lg" onclick="event.stopPropagation()">
+        <img id="modalImage" src="" alt="Zoomed Image" class="rounded shadow-lg" style="max-height: 70vh; max-width: 70vw;" onclick="event.stopPropagation()">
     </div>
 
     <script>

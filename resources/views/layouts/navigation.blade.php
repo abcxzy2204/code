@@ -5,23 +5,39 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
-                        <img src="{{ asset('vtc-logo.png') }}" alt="VTC Logo" class="block h-9 w-auto" />
-                    </a>
+                    @if(Auth::user()->role === 'user')
+                        <a href="{{ route('user.home') }}">
+                            <img src="{{ asset('vtc-logo.png') }}" alt="VTC Logo" class="block h-9 w-auto" />
+                        </a>
+                    @else
+                        <a href="{{ route('dashboard') }}">
+                            <img src="{{ asset('vtc-logo.png') }}" alt="VTC Logo" class="block h-9 w-auto" />
+                        </a>
+                    @endif
                 </div>
-
+              
                 <!-- Navigation Links -->
-<div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex text-lg">
-    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black">
-        {{ __('Trang Chủ') }}
-    </x-nav-link>
-    <x-nav-link :href="route('posts.index')" :active="request()->routeIs('posts.index')" class="text-black">
-        {{ __('Quản lý bài viết') }}
-    </x-nav-link>
-    <x-nav-link :href="route('posts.create')" :active="request()->routeIs('posts.create')" class="text-black">
-        {{ __('Thêm bài viết') }}
-    </x-nav-link>
-</div>
+                <!-- Wrapper chứa toàn bộ các mục -->
+                <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex text-lg items-center">
+                    @if(Auth::user()->role === 'user')
+                        <x-nav-link :href="route('user.home')" :active="request()->routeIs('user.home')" class="text-black">
+                            Trang chủ
+                        </x-nav-link>
+                        <x-nav-link :href="route('user.danhmuc')" :active="request()->routeIs('user.danhmuc')" class="text-black">
+                            Danh mục
+                        </x-nav-link>
+                    @else
+                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black">
+                            Trang chủ
+                        </x-nav-link>
+                        <x-nav-link :href="route('posts.index')" :active="request()->routeIs('posts.index')" class="text-black">
+                            Quản lý bài viết
+                        </x-nav-link>
+                        <x-nav-link :href="route('posts.create')" :active="request()->routeIs('posts.create')" class="text-black">
+                            Thêm bài viết
+                        </x-nav-link>
+                    @endif
+                </div>
             </div>
 
             <!-- Settings Dropdown -->
@@ -40,19 +56,19 @@
                     </x-slot>
 
                     <x-slot name="content">
-<x-dropdown-link :href="route('profile.edit')">
-    {{ __('Tài khoản') }}
-</x-dropdown-link>
+                        <x-dropdown-link :href="route('profile.edit')">
+                            Tài khoản
+                        </x-dropdown-link>
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
 
-<x-dropdown-link :href="route('logout')"
-        onclick="event.preventDefault();
-                    this.closest('form').submit();">
-    {{ __('Đăng xuất') }}
-</x-dropdown-link>
+                            <x-dropdown-link :href="route('logout')"
+                                    onclick="event.preventDefault();
+                                                this.closest('form').submit();">
+                                Đăng xuất
+                            </x-dropdown-link>
                         </form>
                     </x-slot>
                 </x-dropdown>
@@ -73,9 +89,24 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black text-lg">
-                {{ __('Trang Chủ') }}
-            </x-responsive-nav-link>
+            @if(Auth::user()->role === 'user')
+                <x-responsive-nav-link :href="route('user.home')" :active="request()->routeIs('user.home')" class="text-black text-lg">
+                    Trang Chủ
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('user.danhmuc')" :active="request()->routeIs('user.danhmuc')" class="text-black text-lg">
+                    Danh mục
+                </x-responsive-nav-link>
+            @else
+                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-black text-lg">
+                    Trang Chủ
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('posts.index')" :active="request()->routeIs('posts.index')" class="text-black text-lg">
+                    Quản lý bài viết
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('posts.create')" :active="request()->routeIs('posts.create')" class="text-black text-lg">
+                    Thêm bài viết
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->
@@ -86,19 +117,19 @@
             </div>
 
             <div class="mt-3 space-y-1">
-<x-responsive-nav-link :href="route('profile.edit')" class="text-black text-lg">
-    {{ __('Tài khoản') }}
-</x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('profile.edit')" class="text-black text-lg">
+                    Tài khoản
+                </x-responsive-nav-link>
 
                 <!-- Authentication -->
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
 
-<x-responsive-nav-link :href="route('logout')" class="text-black text-lg"
-        onclick="event.preventDefault();
-                    this.closest('form').submit();">
-    {{ __('Đăng xuất') }}
-</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('logout')" class="text-black text-lg"
+                            onclick="event.preventDefault();
+                                        this.closest('form').submit();">
+                        Đăng xuất
+                    </x-responsive-nav-link>
                 </form>
             </div>
         </div>

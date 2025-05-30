@@ -14,7 +14,7 @@
 @endif
 
 
-<div class="flex justify-around text-center space-x-6 space-y-0 flex-wrap">
+    <div class="flex justify-around text-center space-x-6 space-y-0 flex-wrap">
         <div style="margin: 0 5px" class="bg-white rounded-lg p-4 shadow flex-1 flex items-center space-x-4 justify-center min-w-[200px]">
             
             <div>
@@ -42,9 +42,9 @@
 
     <div class="bg-white rounded-lg shadow-md p-6 max-w-6xl mx-auto">
         <h2 class="text-lg font-semibold mb-4 text-center">Chức năng quản lý</h2>
-        <div class="flex justify-center space-x-4">
-            <a href="{{ route('posts.create') }}" class="inline-flex items-center px-4 py-2 bg-white text-black border border-gray-300 rounded hover:bg-gray-100">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="flex justify-center space-x-4 ">
+            <a href="{{ route('posts.create') }}" class="inline-flex items-center px-4 py-2 bg-white text-black border border-gray-300 rounded hover:bg-gray-100 ">
+                <svg xmlns="http://www.w3.org/2000/svg" class=" h-5 w-5 mr-2 text-black " fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
                 Thêm bài viết
@@ -54,6 +54,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
                 Quản lý bài viết
+            </a>
+            <a href="{{ route('danhmuc') }}" class="inline-flex items-center px-4 py-2 bg-white text-black border border-gray-300 rounded hover:bg-gray-100">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18" />
+                </svg>
+                Quản lý danh mục
             </a>
         </div>
     </div>

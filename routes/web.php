@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use App\Models\Post;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
@@ -15,6 +16,19 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+//danh mục
+Route::get('/danhmuc', [\App\Http\Controllers\PostController::class, 'danhmuc'])->name('danhmuc');
+
+Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
+
+Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
+Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
+Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+
+Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+Route::delete('/categories/{categoryName}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+
+Route::delete('/categories/child/{id}', [CategoryController::class, 'destroyChild'])->name('categories.destroyChild');
 // Dashboard
 Route::get('/dashboard', function () {
     $totalPosts = Post::count();
@@ -39,10 +53,14 @@ Route::get('/dashboard', function () {
     }
 
     return view('dashboard', compact('totalPosts', 'latestPostCount', 'latestPostDate', 'dates', 'counts'));
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'verified', 'role:admin,user'])->name('dashboard');
 
 // Nhóm các route cần đăng nhập
 Route::middleware('auth')->group(function () {
+
+    // Trang chủ user
+    Route::get('/user-home', [UserController::class, 'userHome'])->middleware('role:user')->name('user.home');
+    Route::get('/user-danhmuc', [UserController::class, 'userDanhMuc'])->middleware('role:user')->name('user.danhmuc');
 
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -71,5 +89,6 @@ Route::get('/posts/partials/index', [DashboardController::class, 'index'])->name
 Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
 //delete post
 
+Route::get('/posts/user/{id}', [PostController::class, 'showForUser'])->name('posts.user_show');
 // Auth routes
 require __DIR__ . '/auth.php';
